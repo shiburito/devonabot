@@ -2,6 +2,7 @@ GEM
   remote: https://rubygems.org/
   specs:
     base64 (0.3.0)
+    connection_pool (3.0.2)
     discordrb (3.7.1)
       base64 (~> 0.2)
       discordrb-webhooks (~> 3.7.1)
@@ -38,8 +39,11 @@ GEM
       ruby2_keywords (~> 0.0.1)
     mutex_m (0.3.0)
     netrc (0.11.0)
+    nio4r (2.7.5)
     opus-ruby (1.0.1)
       ffi
+    puma (7.1.0)
+      nio4r (~> 2.0)
     rack (3.2.4)
     rack-protection (4.2.1)
       base64 (>= 0.1.0)
@@ -48,6 +52,12 @@ GEM
     rack-session (2.1.1)
       base64 (>= 0.1.0)
       rack (>= 3.0.0)
+    rackup (2.3.1)
+      rack (>= 3)
+    redis (5.4.1)
+      redis-client (>= 0.22.0)
+    redis-client (0.26.3)
+      connection_pool
     rest-client (2.1.0)
       http-accept (>= 1.7.0, < 2.0)
       http-cookie (>= 1.0.2, < 2.0)
@@ -86,6 +96,9 @@ PLATFORMS
 DEPENDENCIES
   discordrb
   dotenv
+  puma
+  rackup
+  redis
   sinatra
 
 BUNDLED WITH

@@ -1,0 +1,25 @@
+services:
+  bot:
+    image: ruby:3.3
+    working_dir: /app
+    volumes:
+      - .:/app
+      - bundle_cache:/usr/local/bundle
+    env_file:
+      - .env
+    environment:
+      - REDIS_URL=redis://redis:6379
+    depends_on:
+      - redis
+    command: bash -c "bundle install && ruby app.rb"
+    ports:
+      - "4567:4567"
+
+  redis:
+    image: redis:7-alpine
+    volumes:
+      - redis_data:/data
+
+volumes:
+  bundle_cache:
+  redis_data:
