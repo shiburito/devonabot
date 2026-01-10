@@ -23,9 +23,9 @@ module DevonaBot
         link = "https://x.com/GuildWars/status/#{post_id}"
         data = {
           "id" => post_id,
-          "title" => item.title,
+          "title" => item.title.to_s,
           "link" => link,
-          "description" => item.description,
+          "description" => item.description.to_s,
           "pub_date" => item.pubDate.to_s,
         }
 
