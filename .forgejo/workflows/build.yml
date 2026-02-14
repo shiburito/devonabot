@@ -11,18 +11,6 @@ jobs:
     container:
       image: gcr.io/kaniko-project/executor:debug
     steps:
-      - name: Install Act dependencies
-        if: ${{ env.ACT }}
-        run: |
-          apt-get update && apt-get install sudo -y
-
-      - name: Install dependencies
-        run: |
-          sudo apt-get update && sudo apt-get install curl build-essential -y
-
-      - name: Checkout
-        uses: actions/checkout@v4
-
       - name: Configure Registry Auth
         run: |
           mkdir -p /kaniko/.docker
@@ -31,7 +19,7 @@ jobs:
       - name: Build and Push
         run: |
           /kaniko/executor \
-            --context . \
+            --context git://git.shiburito.com/${{ forgejo.repository }}.git#${{ forgejo.sha }} \
             --dockerfile Dockerfile \
             --destination git.shiburito.com/${{ forgejo.repository }}:latest \
             --destination git.shiburito.com/${{ forgejo.repository }}:${{ forgejo.sha }}
