@@ -8,4 +8,5 @@ gem 'nokogiri'
 gem "puma"
 gem 'rackup'
 gem 'redis'
+gem 'rss'
 gem 'sinatra'

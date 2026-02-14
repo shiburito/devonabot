@@ -1,0 +1,29 @@
+name: Build Docker Image
+
+on:
+  push:
+    branches:
+      - main
+
+jobs:
+  build:
+    runs-on: docker
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Login to Container Registry
+        uses: docker/login-action@v3
+        with:
+          registry: git.shiburito.com
+          username: ${{ forgejo.repository_owner }}
+          password: ${{ forgejo.token }}
+
+      - name: Build and Push
+        uses: docker/build-push-action@v6
+        with:
+          context: .
+          push: true
+          tags: |
+            git.shiburito.com/${{ forgejo.repository }}:latest
+            git.shiburito.com/${{ forgejo.repository }}:${{ forgejo.sha }}

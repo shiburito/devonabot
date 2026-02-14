@@ -14,6 +14,7 @@ module DevonaBot
       @redis_client = redis_client
       @channels = ENV['GAME_UPDATES_DISCORD_CHANNELS'].split(',')
       @processing = false
+      @disable_messages = ENV['DISABLE_MESSAGES'] == 'true'
     end
 
     def fetch_page(url)
@@ -199,7 +200,7 @@ module DevonaBot
       embeds = [embeds] unless embeds.is_a?(Array)
 
       embeds.each_with_index do |embed, idx|
-        @discord_bot.send_message(channel, "", false, embed)
+        @discord_bot.send_message(channel, "", false, embed) unless @disable_messages
         sleep 1 if idx < embeds.length - 1
       end
 
@@ -207,7 +208,7 @@ module DevonaBot
     end
 
     def store_update(channel, date_id, data)
-      @redis_client.call("HSET", "gw_update:#{channel}:#{date_id}", *data.flatten)
+      @redis_client.call("HSET", "gw_update:#{channel}:#{date_id}", *data.flatten) unless @disable_messages
     end
 
     def update_exists?(channel,date_id)
@@ -222,7 +223,6 @@ module DevonaBot
       unless main_page
         puts "Failed to fetch game updates page"
         @processing = false
-        exit 1
       end
 
       updates_to_post = []
