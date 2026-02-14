@@ -2,10 +2,10 @@ require 'net/http'
 require 'json'
 require 'uri'
 require 'nokogiri'
-require 'open-uri'
 module DevonaBot
 
   WIKI_BASE_URL = 'https://wiki.guildwars.com'
+  WIKI_API_URL = "#{WIKI_BASE_URL}/api.php"
   GAME_UPDATES_URL = "#{WIKI_BASE_URL}/wiki/Game_updates"
 
   class GameUpdateFeed
@@ -15,11 +15,90 @@ module DevonaBot
       @channels = ENV['GAME_UPDATES_DISCORD_CHANNELS'].split(',')
       @processing = false
       @disable_messages = ENV['DISABLE_MESSAGES'] == 'true'
+      @cookies = {}
+      @logged_in = false
+    end
+
+    def wiki_login
+      username = ENV['GW_WIKI_USERNAME']
+      password = ENV['GW_WIKI_PASSWORD']
+      unless username && password
+        puts "GW_WIKI_USERNAME or GW_WIKI_PASSWORD not set, fetching without auth"
+        return false
+      end
+
+      uri = URI("#{WIKI_API_URL}?action=query&meta=tokens&type=login&format=json")
+      token_response = wiki_get(uri)
+      return false unless token_response
+
+      token_data = JSON.parse(token_response.body)
+      login_token = token_data.dig('query', 'tokens', 'logintoken')
+      store_cookies(token_response)
+
+      uri = URI(WIKI_API_URL)
+      login_response = wiki_post(uri, {
+        'action' => 'login',
+        'lgname' => username,
+        'lgpassword' => password,
+        'lgtoken' => login_token,
+        'format' => 'json'
+      })
+      return false unless login_response
+
+      store_cookies(login_response)
+      result = JSON.parse(login_response.body)
+
+      if result.dig('login', 'result') == 'Success'
+        puts "Logged into wiki as #{username}"
+        @logged_in = true
+      else
+        puts "Wiki login failed: #{result.dig('login', 'reason') || result.to_json}"
+        false
+      end
+    rescue => e
+      puts "Wiki login error: #{e.message}"
+      false
+    end
+
+    def wiki_get(uri)
+      http = Net::HTTP.new(uri.host, uri.port)
+      http.use_ssl = true
+      request = Net::HTTP::Get.new(uri)
+      request['User-Agent'] = 'DevonaBot/1.0'
+      request['Cookie'] = cookie_header unless @cookies.empty?
+      http.request(request)
+    end
+
+    def wiki_post(uri, params)
+      http = Net::HTTP.new(uri.host, uri.port)
+      http.use_ssl = true
+      request = Net::HTTP::Post.new(uri)
+      request['User-Agent'] = 'DevonaBot/1.0'
+      request['Cookie'] = cookie_header unless @cookies.empty?
+      request.set_form_data(params)
+      http.request(request)
+    end
+
+    def store_cookies(response)
+      Array(response.get_fields('set-cookie')).each do |cookie|
+        name, value = cookie.split(';').first.split('=', 2)
+        @cookies[name.strip] = value.strip
+      end
+    end
+
+    def cookie_header
+      @cookies.map { |k, v| "#{k}=#{v}" }.join('; ')
     end
 
     def fetch_page(url)
-      URI.open(url, 'User-Agent' => 'GWGlobalBot/1.0').read
-    rescue OpenURI::HTTPError => e
+      uri = URI(url)
+      response = wiki_get(uri)
+      if response.is_a?(Net::HTTPSuccess)
+        response.body
+      else
+        nil
+      end
+    rescue => e
       puts "There was an error fetching the game updates page #{e}"
       nil
     end
@@ -219,6 +298,9 @@ module DevonaBot
     def process
       return if @processing
       @processing = true
+
+      wiki_login unless @logged_in
+
       puts "Fetching game updates page..."
       main_page = fetch_page(GAME_UPDATES_URL)
       unless main_page
