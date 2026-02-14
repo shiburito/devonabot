@@ -5,7 +5,7 @@ require 'nokogiri'
 module DevonaBot
 
   WIKI_BASE_URL = 'https://wiki.guildwars.com'
-  WIKI_LOGIN_URL = "#{WIKI_BASE_URL}/index.php?title=Special:UserLogin"
+  WIKI_API_URL = "#{WIKI_BASE_URL}/api.php"
   GAME_UPDATES_URL = "#{WIKI_BASE_URL}/wiki/Game_updates"
 
   class GameUpdateFeed
@@ -27,37 +27,40 @@ module DevonaBot
         return false
       end
 
-      # GET the login page to extract the login token
-      uri = URI(WIKI_LOGIN_URL)
-      login_page_response = wiki_get(uri)
-      unless login_page_response.is_a?(Net::HTTPSuccess)
-        puts "Failed to fetch login page: #{login_page_response.code}"
+      api_uri = URI(WIKI_API_URL)
+
+      # Step 1: Fetch a login token
+      token_uri = URI("#{WIKI_API_URL}?action=query&meta=tokens&type=login&format=json")
+      token_response = wiki_get(token_uri)
+      unless token_response.is_a?(Net::HTTPSuccess)
+        puts "Failed to fetch login token: HTTP #{token_response.code}"
         return false
       end
-      store_cookies(login_page_response)
+      store_cookies(token_response)
 
-      doc = Nokogiri::HTML(login_page_response.body)
-      login_token = doc.at_css('input[name="wpLoginToken"]')&.attr('value')
+      token_data = JSON.parse(token_response.body)
+      login_token = token_data.dig('query', 'tokens', 'logintoken')
       unless login_token
-        puts "Could not find wpLoginToken on login page"
+        puts "Could not extract login token from API response: #{token_response.body}"
         return false
       end
 
-      # POST the login form
-      login_response = wiki_post(uri, {
-        'wpName' => username,
-        'wpPassword' => password,
-        'wpLoginToken' => login_token,
-        'wpLoginAttempt' => 'Log in',
-        'wpRemember' => '1'
+      # Step 2: POST login with credentials and token
+      login_response = wiki_post(api_uri, {
+        'action' => 'login',
+        'lgname' => username,
+        'lgpassword' => password,
+        'lgtoken' => login_token,
+        'format' => 'json'
       })
       store_cookies(login_response)
 
-      if login_response.is_a?(Net::HTTPRedirection) || @cookies.any? { |k, _| k.include?('UserID') }
-        puts "Logged into wiki as #{username}"
+      result = JSON.parse(login_response.body)
+      if result.dig('login', 'result') == 'Success'
+        puts "Logged into wiki as #{result.dig('login', 'lgusername')}"
         @logged_in = true
       else
-        puts "Wiki login failed: HTTP #{login_response.code}"
+        puts "Wiki login failed: #{result.to_json}"
         false
       end
     rescue => e
