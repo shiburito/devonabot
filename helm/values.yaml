@@ -1,0 +1,22 @@
+replicaCount: 1
+
+image:
+  repository: git.shiburito.com/public/devonabot
+  tag: latest
+  pullPolicy: Always
+
+service:
+  port: 4567
+
+env:
+  TWITTER_FEED_FREQUENCY_SECONDS: "60"
+  GAME_UPDATE_FREQUENCY_SECONDS: "60"
+  DISABLE_MESSAGES: "false"
+
+resources: {}
+# limits:
+#   cpu: 200m
+#   memory: 256Mi
+# requests:
+#   cpu: 100m
+#   memory: 128Mi

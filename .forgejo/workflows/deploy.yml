@@ -1,0 +1,43 @@
+name: Deploy
+
+on:
+  workflow_dispatch:
+    inputs:
+      image_tag:
+        description: "Image tag to deploy"
+        required: false
+        default: "latest"
+
+jobs:
+  deploy:
+    runs-on: ubuntu-22.04
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Install sops
+        run: |
+          wget https://github.com/getsops/sops/releases/download/v3.8.1/sops-v3.8.1.linux.amd64 -O /usr/local/bin/sops
+          chmod +x /usr/local/bin/sops
+      - name: Install helm
+        run: |
+          apt-get install curl gpg apt-transport-https --yes
+          curl -fsSL https://packages.buildkite.com/helm-linux/helm-debian/gpgkey | gpg --dearmor | tee /usr/share/keyrings/helm.gpg > /dev/null
+          echo "deb [signed-by=/usr/share/keyrings/helm.gpg] https://packages.buildkite.com/helm-linux/helm-debian/any/ any main" | tee /etc/apt/sources.list.d/helm-stable-debian.list
+          apt-get update
+          apt-get install helm
+
+      - name: Install Helm Secrets Plugin
+        run: helm plugin install https://github.com/jkroepke/helm-secrets --version v4.6.5
+
+      - name: Configure kubeconfig
+        run: |
+          mkdir -p ~/.kube
+          echo "${{ secrets.KUBECONFIG }}" | base64 -d > ~/.kube/config
+          chmod 600 ~/.kube/config
+
+      - name: Deploy
+        run: |
+          helm secrets upgrade --install --atomic --namespace devonabot devonabot ./helm \
+            -f helm/values.yaml -f helm/secrets.yaml \
+            --set image.tag=${{ forgejo.event.inputs.image_tag }}
