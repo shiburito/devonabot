@@ -20,6 +20,7 @@ module DevonaBot
     def fetch_page(url)
       URI.open(url, 'User-Agent' => 'GWGlobalBot/1.0').read
     rescue OpenURI::HTTPError => e
+      puts "There was an error fetching the game updates page #{e}"
       nil
     end
 
