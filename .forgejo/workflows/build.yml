@@ -11,6 +11,15 @@ jobs:
     container:
       image: gcr.io/kaniko-project/executor:debug
     steps:
+      - name: Install Act dependencies
+        if: ${{ env.ACT }}
+        run: |
+          apt-get update && apt-get install sudo -y
+
+      - name: Install dependencies
+        run: |
+          sudo apt-get update && sudo apt-get install curl build-essential -y
+
       - name: Checkout
         uses: actions/checkout@v4
 
