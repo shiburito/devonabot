@@ -14,7 +14,7 @@ jobs:
       - name: Configure Registry Auth
         run: |
           mkdir -p /kaniko/.docker
-          echo "{\"auths\":{\"git.shiburito.com\":{\"username\":\"${{ forgejo.repository_owner }}\",\"password\":\"${{ forgejo.token }}\"}}}" > /kaniko/.docker/config.json
+          echo "{\"auths\":{\"git.shiburito.com\":{\"username\":\"${{ forgejo.repository_owner }}\",\"password\":\"${{ secrets.REGISTRY_TOKEN }}\"}}}" > /kaniko/.docker/config.json
 
       - name: Build and Push
         run: |
