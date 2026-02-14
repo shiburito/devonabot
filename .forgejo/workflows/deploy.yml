@@ -5,6 +5,7 @@ on:
     inputs:
       image_tag:
         description: "Image tag to deploy"
+        type: string
         required: false
         default: "latest"
 
@@ -49,6 +50,6 @@ jobs:
       - name: Deploy
         run: |
           kubectl config use-context do-nyc1-tyria-cloud
-          helm secrets upgrade --install --atomic --namespace devonabot devonabot ./helm \
+          helm secrets upgrade --install --atomic --create-namespace --namespace devonabot devonabot ./helm \
             -f helm/values.yaml -f helm/secrets.yaml \
             --set image.tag=${{ forgejo.event.inputs.image_tag }}
