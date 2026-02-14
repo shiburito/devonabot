@@ -8,25 +8,21 @@ on:
 jobs:
   build:
     runs-on: ubuntu-22.04
+    container:
+      image: gcr.io/kaniko-project/executor:debug
     steps:
       - name: Checkout
         uses: actions/checkout@v4
 
-      - name: Set up Docker Buildx
-        uses: https://github.com/docker/setup-buildx-action@v3
-
-      - name: Login to Container Registry
-        uses: https://github.com/docker/login-action@v3
-        with:
-          registry: git.shiburito.com
-          username: ${{ forgejo.repository_owner }}
-          password: ${{ forgejo.token }}
+      - name: Configure Registry Auth
+        run: |
+          mkdir -p /kaniko/.docker
+          echo "{\"auths\":{\"git.shiburito.com\":{\"username\":\"${{ forgejo.repository_owner }}\",\"password\":\"${{ forgejo.token }}\"}}}" > /kaniko/.docker/config.json
 
       - name: Build and Push
-        uses: https://github.com/docker/build-push-action@v6
-        with:
-          context: .
-          push: true
-          tags: |
-            git.shiburito.com/${{ forgejo.repository }}:latest
-            git.shiburito.com/${{ forgejo.repository }}:${{ forgejo.sha }}
+        run: |
+          /kaniko/executor \
+            --context . \
+            --dockerfile Dockerfile \
+            --destination git.shiburito.com/${{ forgejo.repository }}:latest \
+            --destination git.shiburito.com/${{ forgejo.repository }}:${{ forgejo.sha }}
