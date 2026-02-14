@@ -8,7 +8,7 @@ require_relative 'lib/twitter_feed'
 require_relative 'lib/game_update_feed'
 
 commands = [FavorCommand.new]
-server_id = ENV.fetch('DISCORD_SERVER_ID', nil)
+server_ids = ENV.fetch('DISCORD_SERVER_IDS', "").split(',')
 bot = Discordrb::Bot.new(token: ENV.fetch('DISCORD_BOT_TOKEN', nil), intents: :all)
 redis_config = RedisClient.config(url: ENV['REDIS_URL'])
 redis_client = redis_config.new_pool(timeout: 0.5, size: Integer(ENV.fetch("REDIS_MAX_THREADS", 2)))
@@ -21,13 +21,15 @@ if redis_client.call("PING") != 'PONG'
 end
 
 commands.each do |command|
-  bot.register_application_command(command.id, command.description, server_id: server_id) do |cmd|
-    if command.subcommands.empty?
-      command.register(cmd)
-    else
-      command.subcommands.each do |subcommand|
-        cmd.subcommand(subcommand.id, subcommand.description) do |sub|
-          subcommand.register(sub)
+  server_ids.each do |server_id|
+    bot.register_application_command(command.id, command.description, server_id: server_id) do |cmd|
+      if command.subcommands.empty?
+        command.register(cmd)
+      else
+        command.subcommands.each do |subcommand|
+          cmd.subcommand(subcommand.id, subcommand.description) do |sub|
+            subcommand.register(sub)
+          end
         end
       end
     end
@@ -60,7 +62,7 @@ Thread.new do
   loop do
     begin
       twitter_feed.process
-      sleep(twitter_feed_frequency_seconds.to_i)
+      sleep twitter_feed_frequency_seconds.to_i
     rescue => e
       puts "There was an error processing the twitter rss feed #{e}"
       sleep 2

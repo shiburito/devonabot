@@ -86,6 +86,9 @@ GEM
       http-cookie (>= 1.0.2, < 2.0)
       mime-types (>= 1.16, < 4.0)
       netrc (~> 0.8)
+    rexml (3.4.4)
+    rss (0.3.2)
+      rexml
     ruby2_keywords (0.0.5)
     sinatra (4.2.1)
       logger (>= 1.6.0)
@@ -123,6 +126,7 @@ DEPENDENCIES
   puma
   rackup
   redis
+  rss
   sinatra
 
 BUNDLED WITH
