@@ -5,7 +5,7 @@ require 'nokogiri'
 module DevonaBot
 
   WIKI_BASE_URL = 'https://wiki.guildwars.com'
-  WIKI_API_URL = "#{WIKI_BASE_URL}/api.php"
+  WIKI_LOGIN_URL = "#{WIKI_BASE_URL}/index.php?title=Special:UserLogin"
   GAME_UPDATES_URL = "#{WIKI_BASE_URL}/wiki/Game_updates"
 
   class GameUpdateFeed
@@ -27,32 +27,37 @@ module DevonaBot
         return false
       end
 
-      uri = URI("#{WIKI_API_URL}?action=query&meta=tokens&type=login&format=json")
-      token_response = wiki_get(uri)
-      return false unless token_response
+      # GET the login page to extract the login token
+      uri = URI(WIKI_LOGIN_URL)
+      login_page_response = wiki_get(uri)
+      unless login_page_response.is_a?(Net::HTTPSuccess)
+        puts "Failed to fetch login page: #{login_page_response.code}"
+        return false
+      end
+      store_cookies(login_page_response)
 
-      token_data = JSON.parse(token_response.body)
-      login_token = token_data.dig('query', 'tokens', 'logintoken')
-      store_cookies(token_response)
+      doc = Nokogiri::HTML(login_page_response.body)
+      login_token = doc.at_css('input[name="wpLoginToken"]')&.attr('value')
+      unless login_token
+        puts "Could not find wpLoginToken on login page"
+        return false
+      end
 
-      uri = URI(WIKI_API_URL)
+      # POST the login form
       login_response = wiki_post(uri, {
-        'action' => 'login',
-        'lgname' => username,
-        'lgpassword' => password,
-        'lgtoken' => login_token,
-        'format' => 'json'
+        'wpName' => username,
+        'wpPassword' => password,
+        'wpLoginToken' => login_token,
+        'wpLoginAttempt' => 'Log in',
+        'wpRemember' => '1'
       })
-      return false unless login_response
-
       store_cookies(login_response)
-      result = JSON.parse(login_response.body)
 
-      if result.dig('login', 'result') == 'Success'
+      if login_response.is_a?(Net::HTTPRedirection) || @cookies.any? { |k, _| k.include?('UserID') }
         puts "Logged into wiki as #{username}"
         @logged_in = true
       else
-        puts "Wiki login failed: #{result.dig('login', 'reason') || result.to_json}"
+        puts "Wiki login failed: HTTP #{login_response.code}"
         false
       end
     rescue => e
