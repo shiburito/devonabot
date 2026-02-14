@@ -15,10 +15,16 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v4
 
+      - name: Install kubectl
+        run: |
+          curl -fsSLo /usr/local/bin/kubectl https://dl.k8s.io/release/$(curl -fsSL https://dl.k8s.io/release/stable.txt)/bin/linux/amd64/kubectl
+          chmod +x /usr/local/bin/kubectl
+
       - name: Install sops
         run: |
           wget https://github.com/getsops/sops/releases/download/v3.8.1/sops-v3.8.1.linux.amd64 -O /usr/local/bin/sops
           chmod +x /usr/local/bin/sops
+
       - name: Install helm
         run: |
           apt-get install curl gpg apt-transport-https --yes
@@ -38,6 +44,7 @@ jobs:
 
       - name: Deploy
         run: |
+          kubectl config use-context do-nyc1-tyria-cloud
           helm secrets upgrade --install --atomic --namespace devonabot devonabot ./helm \
             -f helm/values.yaml -f helm/secrets.yaml \
             --set image.tag=${{ forgejo.event.inputs.image_tag }}
