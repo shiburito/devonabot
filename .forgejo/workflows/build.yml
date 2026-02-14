@@ -7,13 +7,13 @@ on:
 
 jobs:
   build:
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-22.04
     steps:
       - name: Checkout
         uses: actions/checkout@v4
 
       - name: Set up Docker
-        uses: docker/setup-docker-action@v4
+        uses: https://github.com/docker/setup-docker-action@v4
 
       - name: Login to Container Registry
         uses: docker/login-action@v3
