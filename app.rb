@@ -11,7 +11,7 @@ commands = [FavorCommand.new]
 server_ids = ENV.fetch('DISCORD_SERVER_IDS', "").split(',')
 bot = Discordrb::Bot.new(token: ENV.fetch('DISCORD_BOT_TOKEN', nil), intents: :all)
 redis_config = RedisClient.config(url: ENV['REDIS_URL'])
-redis_client = redis_config.new_pool(timeout: 0.5, size: Integer(ENV.fetch("REDIS_MAX_THREADS", 2)))
+redis_client = redis_config.new_pool(timeout: 3.0, size: Integer(ENV.fetch("REDIS_MAX_THREADS", 2)))
 twitter_feed_frequency_seconds = ENV['TWITTER_FEED_FREQUENCY_SECONDS']
 game_updates_frequency_seconds = ENV['GAME_UPDATE_FREQUENCY_SECONDS']
 
