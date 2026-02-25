@@ -3,17 +3,5 @@ services:
     build: .
     env_file:
       - .env
-    environment:
-      - REDIS_URL=redis://redis:6379
-    depends_on:
-      - redis
     ports:
       - "4567:4567"
-
-  redis:
-    image: redis:7-alpine
-    volumes:
-      - redis_data:/data
-
-volumes:
-  redis_data:
