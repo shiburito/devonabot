@@ -1,6 +1,3 @@
-require 'net/http'
-require 'json'
-require 'uri'
 require 'nokogiri'
 
 module DevonaBot
@@ -10,107 +7,16 @@ module DevonaBot
   DAILY_ACTIVITIES_URL = "#{WIKI_BASE_URL}/wiki/Daily_activities"
 
   class DailyActivitiesFeed
-    def initialize(discord_bot, redis_client)
+    def initialize(discord_bot, redis_client, wiki_client)
       @discord_bot = discord_bot
       @redis_client = redis_client
+      @wiki_client = wiki_client
       @processing = false
       @disable_messages = ENV['DISABLE_MESSAGES'] == 'true'
-      @cookies = {}
-      @logged_in = false
-    end
-
-    def wiki_login
-      username = ENV['GW_WIKI_USERNAME']
-      password = ENV['GW_WIKI_PASSWORD']
-      unless username && password
-        puts "GW_WIKI_USERNAME or GW_WIKI_PASSWORD not set, fetching without auth"
-        return false
-      end
-
-      api_uri = URI(WIKI_API_URL)
-
-      token_uri = URI("#{WIKI_API_URL}?action=query&meta=tokens&type=login&format=json")
-      token_response = wiki_get(token_uri)
-      unless token_response.is_a?(Net::HTTPSuccess)
-        puts "Failed to fetch login token: HTTP #{token_response.code}"
-        return false
-      end
-      store_cookies(token_response)
-
-      token_data = JSON.parse(token_response.body)
-      login_token = token_data.dig('query', 'tokens', 'logintoken')
-      unless login_token
-        puts "Could not extract login token from API response: #{token_response.body}"
-        return false
-      end
-
-      login_response = wiki_post(api_uri, {
-        'action' => 'login',
-        'lgname' => username,
-        'lgpassword' => password,
-        'lgtoken' => login_token,
-        'format' => 'json'
-      })
-      store_cookies(login_response)
-
-      result = JSON.parse(login_response.body)
-      if result.dig('login', 'result') == 'Success'
-        puts "Daily activities feed logged into wiki as #{result.dig('login', 'lgusername')}"
-        @logged_in = true
-      else
-        puts "Daily activities feed wiki login failed: #{result.to_json}"
-        false
-      end
-    rescue => e
-      puts "Daily activities feed wiki login error: #{e.message}"
-      false
-    end
-
-    def wiki_get(uri)
-      http = Net::HTTP.new(uri.host, uri.port)
-      http.use_ssl = true
-      request = Net::HTTP::Get.new(uri)
-      request['User-Agent'] = 'DevonaBot/1.0'
-      request['Cookie'] = cookie_header unless @cookies.empty?
-      http.request(request)
-    end
-
-    def wiki_post(uri, params)
-      http = Net::HTTP.new(uri.host, uri.port)
-      http.use_ssl = true
-      request = Net::HTTP::Post.new(uri)
-      request['User-Agent'] = 'DevonaBot/1.0'
-      request['Cookie'] = cookie_header unless @cookies.empty?
-      request.set_form_data(params)
-      http.request(request)
-    end
-
-    def store_cookies(response)
-      Array(response.get_fields('set-cookie')).each do |cookie|
-        name, value = cookie.split(';').first.split('=', 2)
-        @cookies[name.strip] = value.strip
-      end
-    end
-
-    def cookie_header
-      @cookies.map { |k, v| "#{k}=#{v}" }.join('; ')
-    end
-
-    def fetch_page(url)
-      uri = URI(url)
-      response = wiki_get(uri)
-      if response.is_a?(Net::HTTPSuccess)
-        response.body
-      else
-        nil
-      end
-    rescue => e
-      puts "There was an error fetching #{url}: #{e}"
-      nil
     end
 
     def fetch_weekly_bonuses
-      html = fetch_page(WEEKLY_BONUSES_URL)
+      html = @wiki_client.fetch_page(WEEKLY_BONUSES_URL)
       return nil unless html
 
       doc = Nokogiri::HTML(html)
@@ -153,7 +59,7 @@ module DevonaBot
     end
 
     def fetch_zaishen_quests(date = nil)
-      html = fetch_page(ZAISHEN_QUEST_URL)
+      html = @wiki_client.fetch_page(ZAISHEN_QUEST_URL)
       return nil unless html
 
       doc = Nokogiri::HTML(html)
@@ -198,7 +104,7 @@ module DevonaBot
     end
 
     def fetch_nicholas_gifts(date = nil)
-      html = fetch_page(NICHOLAS_CYCLE_URL)
+      html = @wiki_client.fetch_page(NICHOLAS_CYCLE_URL)
       return nil unless html
 
       doc = Nokogiri::HTML(html)
@@ -250,7 +156,7 @@ module DevonaBot
     end
 
     def fetch_daily_extras(date = nil)
-      html = fetch_page(DAILY_ACTIVITIES_URL)
+      html = @wiki_client.fetch_page(DAILY_ACTIVITIES_URL)
       return nil unless html
 
       doc = Nokogiri::HTML(html)
@@ -333,7 +239,7 @@ module DevonaBot
     end
 
     def get_today_embed
-      wiki_login unless @logged_in
+      @wiki_client.login
       bonuses = fetch_weekly_bonuses
       quests = fetch_zaishen_quests
       nicholas = fetch_nicholas_gifts
@@ -379,7 +285,7 @@ module DevonaBot
     end
 
     def force_update(date = nil)
-      wiki_login unless @logged_in
+      @wiki_client.login
 
       bonuses = fetch_weekly_bonuses
       quests = fetch_zaishen_quests(date)
@@ -442,7 +348,7 @@ module DevonaBot
 
       @processing = true
 
-      wiki_login unless @logged_in
+      @wiki_client.login
 
       puts "Fetching daily activities..."
       bonuses = fetch_weekly_bonuses
