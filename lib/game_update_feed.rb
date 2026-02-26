@@ -216,6 +216,7 @@ module DevonaBot
       unless main_page
         puts "Failed to fetch game updates page"
         @processing = false
+        return
       end
 
       updates_to_post = []

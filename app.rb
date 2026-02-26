@@ -6,14 +6,17 @@ require 'redis'
 require_relative 'commands/favor_command'
 require_relative 'commands/daily_command'
 require_relative 'commands/devona_admin_command'
+require_relative 'lib/redis_client_wrapper'
 require_relative 'lib/wiki_client'
 require_relative 'lib/twitter_feed'
 require_relative 'lib/game_update_feed'
 require_relative 'lib/daily_activities_feed'
 server_ids = ENV.fetch('DISCORD_SERVER_IDS', "").split(',')
 bot = Discordrb::Bot.new(token: ENV.fetch('DISCORD_BOT_TOKEN', nil), intents: :all)
-redis_config = RedisClient.config(url: ENV['REDIS_URL'], connect_timeout: 10.0, read_timeout: 10.0, write_timeout: 10.0)
-redis_client = redis_config.new_pool(timeout: 10.0, size: Integer(ENV.fetch("REDIS_MAX_THREADS", 5)))
+redis_client = DevonaBot::RedisClientWrapper.new(
+  url: ENV['REDIS_URL'],
+  pool_size: Integer(ENV.fetch("REDIS_MAX_THREADS", 5))
+)
 twitter_feed_frequency_seconds = ENV['TWITTER_FEED_FREQUENCY_SECONDS']
 game_updates_frequency_seconds = ENV['GAME_UPDATE_FREQUENCY_SECONDS']
 daily_activities_frequency_seconds = ENV.fetch('DAILY_ACTIVITIES_FREQUENCY_SECONDS', '60').to_i
