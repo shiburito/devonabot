@@ -1,114 +1,16 @@
-require 'net/http'
-require 'json'
-require 'uri'
 require 'nokogiri'
-module DevonaBot
 
-  WIKI_BASE_URL = 'https://wiki.guildwars.com'
-  WIKI_API_URL = "#{WIKI_BASE_URL}/api.php"
+module DevonaBot
   GAME_UPDATES_URL = "#{WIKI_BASE_URL}/wiki/Game_updates"
 
   class GameUpdateFeed
-    def initialize(discord_bot, redis_client)
+    def initialize(discord_bot, redis_client, wiki_client)
       @discord_bot = discord_bot
       @redis_client = redis_client
+      @wiki_client = wiki_client
       @channels = ENV['GAME_UPDATES_DISCORD_CHANNELS'].split(',')
       @processing = false
       @disable_messages = ENV['DISABLE_MESSAGES'] == 'true'
-      @cookies = {}
-      @logged_in = false
-    end
-
-    def wiki_login
-      username = ENV['GW_WIKI_USERNAME']
-      password = ENV['GW_WIKI_PASSWORD']
-      unless username && password
-        puts "GW_WIKI_USERNAME or GW_WIKI_PASSWORD not set, fetching without auth"
-        return false
-      end
-
-      api_uri = URI(WIKI_API_URL)
-
-      # Step 1: Fetch a login token
-      token_uri = URI("#{WIKI_API_URL}?action=query&meta=tokens&type=login&format=json")
-      token_response = wiki_get(token_uri)
-      unless token_response.is_a?(Net::HTTPSuccess)
-        puts "Failed to fetch login token: HTTP #{token_response.code}"
-        return false
-      end
-      store_cookies(token_response)
-
-      token_data = JSON.parse(token_response.body)
-      login_token = token_data.dig('query', 'tokens', 'logintoken')
-      unless login_token
-        puts "Could not extract login token from API response: #{token_response.body}"
-        return false
-      end
-
-      # Step 2: POST login with credentials and token
-      login_response = wiki_post(api_uri, {
-        'action' => 'login',
-        'lgname' => username,
-        'lgpassword' => password,
-        'lgtoken' => login_token,
-        'format' => 'json'
-      })
-      store_cookies(login_response)
-
-      result = JSON.parse(login_response.body)
-      if result.dig('login', 'result') == 'Success'
-        puts "Logged into wiki as #{result.dig('login', 'lgusername')}"
-        @logged_in = true
-      else
-        puts "Wiki login failed: #{result.to_json}"
-        false
-      end
-    rescue => e
-      puts "Wiki login error: #{e.message}"
-      false
-    end
-
-    def wiki_get(uri)
-      http = Net::HTTP.new(uri.host, uri.port)
-      http.use_ssl = true
-      request = Net::HTTP::Get.new(uri)
-      request['User-Agent'] = 'DevonaBot/1.0'
-      request['Cookie'] = cookie_header unless @cookies.empty?
-      http.request(request)
-    end
-
-    def wiki_post(uri, params)
-      http = Net::HTTP.new(uri.host, uri.port)
-      http.use_ssl = true
-      request = Net::HTTP::Post.new(uri)
-      request['User-Agent'] = 'DevonaBot/1.0'
-      request['Cookie'] = cookie_header unless @cookies.empty?
-      request.set_form_data(params)
-      http.request(request)
-    end
-
-    def store_cookies(response)
-      Array(response.get_fields('set-cookie')).each do |cookie|
-        name, value = cookie.split(';').first.split('=', 2)
-        @cookies[name.strip] = value.strip
-      end
-    end
-
-    def cookie_header
-      @cookies.map { |k, v| "#{k}=#{v}" }.join('; ')
-    end
-
-    def fetch_page(url)
-      uri = URI(url)
-      response = wiki_get(uri)
-      if response.is_a?(Net::HTTPSuccess)
-        response.body
-      else
-        nil
-      end
-    rescue => e
-      puts "There was an error fetching the game updates page #{e}"
-      nil
     end
 
     def parse_list(ul_node, depth = 0)
@@ -307,10 +209,10 @@ module DevonaBot
       return if @processing
       @processing = true
 
-      wiki_login unless @logged_in
+      @wiki_client.login
 
       puts "Fetching game updates page..."
-      main_page = fetch_page(GAME_UPDATES_URL)
+      main_page = @wiki_client.fetch_page(GAME_UPDATES_URL)
       unless main_page
         puts "Failed to fetch game updates page"
         @processing = false
@@ -322,7 +224,7 @@ module DevonaBot
         date = (Date.today - days_ago).strftime('%Y%m%d')
         next if updates_to_post.any? { |u| u[:date_id] == date }
         update_url = "#{WIKI_BASE_URL}/wiki/Feedback:Game_updates/#{date}"
-        update_page = fetch_page(update_url)
+        update_page = @wiki_client.fetch_page(update_url)
         next unless update_page
 
         sections = parse_update_page(update_page)
