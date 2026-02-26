@@ -4,16 +4,21 @@ require 'sinatra'
 require 'redis'
 
 require_relative 'commands/favor_command'
+require_relative 'commands/daily_command'
+require_relative 'commands/devona_admin_command'
 require_relative 'lib/twitter_feed'
 require_relative 'lib/game_update_feed'
-
-commands = [FavorCommand.new]
+require_relative 'lib/daily_activities_feed'
 server_ids = ENV.fetch('DISCORD_SERVER_IDS', "").split(',')
 bot = Discordrb::Bot.new(token: ENV.fetch('DISCORD_BOT_TOKEN', nil), intents: :all)
 redis_config = RedisClient.config(url: ENV['REDIS_URL'], connect_timeout: 5.0, read_timeout: 5.0, write_timeout: 5.0)
-redis_client = redis_config.new_pool(timeout: 5.0, size: Integer(ENV.fetch("REDIS_MAX_THREADS", 2)))
+redis_client = redis_config.new_pool(timeout: 5.0, size: Integer(ENV.fetch("REDIS_MAX_THREADS", 5)))
 twitter_feed_frequency_seconds = ENV['TWITTER_FEED_FREQUENCY_SECONDS']
 game_updates_frequency_seconds = ENV['GAME_UPDATE_FREQUENCY_SECONDS']
+daily_activities_frequency_seconds = ENV.fetch('DAILY_ACTIVITIES_FREQUENCY_SECONDS', '60').to_i
+
+daily_activities_feed = DevonaBot::DailyActivitiesFeed.new(bot, redis_client)
+commands = [FavorCommand.new, DailyCommand.new(daily_activities_feed), DevonaAdminCommand.new(daily_activities_feed)]
 
 if redis_client.call("PING") != 'PONG'
   puts("Error contacting redis, check that it's up and accessible!")
@@ -43,11 +48,9 @@ commands.each do |command|
       command.execute(event)
     end
   else
-    bot.application_command(command.id.to_sym) do |app_command|
-      command.subcommands.each do |subcommand|
-        app_command.subcommand(subcommand.id.to_sym) do |event|
-          subcommand.execute(event)
-        end
+    command.subcommands.each do |subcommand|
+      bot.application_command(command.id.to_sym).subcommand(subcommand.id.to_sym) do |event|
+        subcommand.execute(event)
       end
     end
   end
@@ -77,6 +80,18 @@ Thread.new do
       sleep game_updates_frequency_seconds.to_i
     rescue => e
       puts "There was an error processing the game updates feed #{e}"
+      sleep 2
+    end
+  end
+end
+
+Thread.new do
+  loop do
+    begin
+      daily_activities_feed.process
+      sleep daily_activities_frequency_seconds
+    rescue => e
+      puts "There was an error processing the daily activities feed #{e}"
       sleep 2
     end
   end
