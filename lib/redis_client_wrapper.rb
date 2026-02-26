@@ -2,7 +2,7 @@ require 'redis'
 
 module DevonaBot
   class RedisClientWrapper
-    MAX_RETRIES = 3
+    MAX_RETRIES = 5
 
     def initialize(url:, connect_timeout: 5.0, read_timeout: 5.0, write_timeout: 5.0, pool_timeout: 5.0, pool_size: 5)
       config = RedisClient.config(

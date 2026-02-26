@@ -221,7 +221,7 @@ module DevonaBot
 
       updates_to_post = []
 
-      (0..6).each do |days_ago|
+      (0..1).each do |days_ago|
         date = (Date.today - days_ago).strftime('%Y%m%d')
         next if updates_to_post.any? { |u| u[:date_id] == date }
         update_url = "#{WIKI_BASE_URL}/wiki/Feedback:Game_updates/#{date}"
