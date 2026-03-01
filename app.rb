@@ -11,6 +11,8 @@ require_relative 'lib/wiki_client'
 require_relative 'lib/twitter_feed'
 require_relative 'lib/game_update_feed'
 require_relative 'lib/daily_activities_feed'
+require_relative 'lib/special_events_feed'
+require_relative 'commands/events_command'
 server_ids = ENV.fetch('DISCORD_SERVER_IDS', "").split(',')
 bot = Discordrb::Bot.new(token: ENV.fetch('DISCORD_BOT_TOKEN', nil), intents: :all)
 redis_client = DevonaBot::RedisClientWrapper.new(
@@ -24,7 +26,8 @@ daily_activities_frequency_seconds = ENV.fetch('DAILY_ACTIVITIES_FREQUENCY_SECON
 wiki_client = DevonaBot::WikiClient.new
 wiki_client.login
 daily_activities_feed = DevonaBot::DailyActivitiesFeed.new(bot, redis_client, wiki_client)
-commands = [FavorCommand.new, DailyCommand.new(daily_activities_feed), DevonaAdminCommand.new(daily_activities_feed)]
+special_events_feed = DevonaBot::SpecialEventsFeed.new(bot, redis_client, wiki_client)
+commands = [FavorCommand.new, DailyCommand.new(daily_activities_feed), EventsCommand.new(special_events_feed), DevonaAdminCommand.new(daily_activities_feed, special_events_feed)]
 
 if redis_client.call("PING") != 'PONG'
   puts("Error contacting redis, check that it's up and accessible!")
@@ -95,6 +98,7 @@ Thread.new do
   loop do
     begin
       daily_activities_feed.process
+      special_events_feed.process
       sleep daily_activities_frequency_seconds
     rescue => e
       puts "There was an error processing the daily activities feed #{e}"
