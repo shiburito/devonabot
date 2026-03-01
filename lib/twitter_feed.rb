@@ -25,6 +25,7 @@ module DevonaBot
       @processing = true
       puts 'Fetching twitter feed...'
       @channels.each do |channel|
+        @links_to_post[channel] = []
         @feed.items.each do |item|
           post_id = item.link.split('/').last.gsub('#m','')
           link = "https://x.com/GuildWars/status/#{post_id}"
