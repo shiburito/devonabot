@@ -24,6 +24,7 @@ module DevonaBot
       return if @processing
       @processing = true
       puts 'Fetching twitter feed...'
+      @feed = RSS::Parser.parse(ENV['TWITTER_FEED'])
       @channels.each do |channel|
         @links_to_post[channel] = []
         @feed.items.each do |item|
