@@ -180,7 +180,7 @@ module DevonaBot
         }
       end
 
-      embeds << current_embed unless current_embed[:fields].empty?
+      embeds << current_embed unless current_embed[:fields].empty? && current_embed[:description].nil?
 
       return nil if embeds.empty?
       embeds
