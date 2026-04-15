@@ -127,9 +127,10 @@ class DevonaAdminCommand < DevonaBot::Commands::DiscordCommand
   end
 
   class UpdateSubcommand < DevonaBot::Commands::DiscordCommand
-    def initialize(feed)
-      super("update", "update", "Force update daily activities for a specific date")
-      @feed = feed
+    def initialize(daily_feed, events_feed)
+      super("update", "update", "Force update daily activities and special events")
+      @daily_feed = daily_feed
+      @events_feed = events_feed
     end
 
     def register(sub)
@@ -154,14 +155,13 @@ class DevonaAdminCommand < DevonaBot::Commands::DiscordCommand
         end
       end
 
-      event.respond(content: "Updating daily activities#{date ? " for #{date}" : ""}...", ephemeral: true)
+      event.respond(content: "Updating daily activities#{date ? " for #{date}" : ""} and special events...", ephemeral: true)
 
-      success = @feed.force_update(date)
-      if success
-        puts "Force updated daily activities#{date ? " for #{date}" : ""}"
-      else
-        puts "Failed to force update daily activities#{date ? " for #{date}" : ""}"
-      end
+      daily_success = @daily_feed.force_update(date)
+      puts(daily_success ? "Force updated daily activities#{date ? " for #{date}" : ""}" : "Failed to force update daily activities#{date ? " for #{date}" : ""}")
+
+      events_success = @events_feed.force_update
+      puts(events_success ? "Force updated special events" : "Failed to force update special events")
     end
   end
 
@@ -173,7 +173,7 @@ class DevonaAdminCommand < DevonaBot::Commands::DiscordCommand
       [
         SubscribeSubcommand.new(daily_activities_feed),
         UnsubscribeSubcommand.new(daily_activities_feed),
-        UpdateSubcommand.new(daily_activities_feed),
+        UpdateSubcommand.new(daily_activities_feed, special_events_feed),
         SubscribeEventsSubcommand.new(special_events_feed),
         UnsubscribeEventsSubcommand.new(special_events_feed)
       ]
