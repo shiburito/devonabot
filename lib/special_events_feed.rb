@@ -35,7 +35,14 @@ module DevonaBot
         cells = row.css('td')
         next if cells.empty? || cells.length < 7
 
-        name = cells[0].at_css('a')&.text&.strip || cells[0].text.strip
+        link = cells[0].at_css('a')
+        name = link&.text&.strip || cells[0].text.strip
+        link_path = link&.attr('href')
+        url = if link_path
+          "#{WIKI_BASE_URL}#{link_path}"
+        elsif name && !name.empty?
+          "#{WIKI_BASE_URL}/wiki/#{name.gsub(' ', '_')}"
+        end
         date_text = cells[2].text.strip
         size = cells[3].text.strip
         notes = cells[6].text.strip
@@ -49,6 +56,7 @@ module DevonaBot
 
         events << {
           name: name,
+          url: url,
           month_day: month_day,
           time: time_str,
           size: size,
@@ -93,7 +101,8 @@ module DevonaBot
 
       next_event = upcoming.first
       unix = next_event[:datetime].to_i
-      next_value = "**#{next_event[:name]}** (#{next_event[:size]})\n"
+      name_link = next_event[:url] ? "[#{next_event[:name]}](#{next_event[:url]})" : "**#{next_event[:name]}**"
+      next_value = "#{name_link} (#{next_event[:size]})\n"
       next_value += "<t:#{unix}:F> (<t:#{unix}:R>)"
       next_value += "\n#{next_event[:notes]}" unless next_event[:notes].empty?
       next_value = next_value[0, 1020] + "..." if next_value.length > 1024
@@ -102,7 +111,8 @@ module DevonaBot
       if upcoming.length > 1
         coming_up = upcoming[1..].map do |event|
           unix = event[:datetime].to_i
-          "**#{event[:name]}** (#{event[:size]}) — <t:#{unix}:D> (<t:#{unix}:R>)"
+          name_link = event[:url] ? "[#{event[:name]}](#{event[:url]})" : "**#{event[:name]}**"
+          "#{name_link} (#{event[:size]}) — <t:#{unix}:D> (<t:#{unix}:R>)"
         end.join("\n")
         coming_up = coming_up[0, 1020] + "..." if coming_up.length > 1024
         fields << { name: "Coming Up", value: coming_up, inline: false }

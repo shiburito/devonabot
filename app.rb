@@ -25,8 +25,8 @@ daily_activities_frequency_seconds = ENV.fetch('DAILY_ACTIVITIES_FREQUENCY_SECON
 
 wiki_client = DevonaBot::WikiClient.new
 wiki_client.login
-daily_activities_feed = DevonaBot::DailyActivitiesFeed.new(bot, redis_client, wiki_client)
 special_events_feed = DevonaBot::SpecialEventsFeed.new(bot, redis_client, wiki_client)
+daily_activities_feed = DevonaBot::DailyActivitiesFeed.new(bot, redis_client, wiki_client, special_events_feed)
 commands = [FavorCommand.new, DailyCommand.new(daily_activities_feed), EventsCommand.new(special_events_feed), DevonaAdminCommand.new(daily_activities_feed, special_events_feed)]
 
 if redis_client.call("PING") != 'PONG'

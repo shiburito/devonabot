@@ -7,10 +7,11 @@ module DevonaBot
   DAILY_ACTIVITIES_URL = "#{WIKI_BASE_URL}/wiki/Daily_activities"
 
   class DailyActivitiesFeed
-    def initialize(discord_bot, redis_client, wiki_client)
+    def initialize(discord_bot, redis_client, wiki_client, special_events_feed = nil)
       @discord_bot = discord_bot
       @redis_client = redis_client
       @wiki_client = wiki_client
+      @special_events_feed = special_events_feed
       @processing = false
       @disable_messages = ENV['DISABLE_MESSAGES'] == 'true'
     end
@@ -198,12 +199,7 @@ module DevonaBot
       fields = []
 
       if bonuses && !bonuses.empty?
-        bonus_text = bonuses.map do |b|
-          line = "**#{b[:name]}**"
-          line += "\n#{b[:description]}" if b[:description]
-          line
-        end.join("\n\n")
-        bonus_text = bonus_text[0, 1020] + "..." if bonus_text.length > 1024
+        bonus_text = bonuses.map { |b| "[#{b[:name]}](#{WEEKLY_BONUSES_URL})" }.join("\n")
         fields << { name: "Weekly Bonuses", value: bonus_text, inline: false }
       end
 
@@ -225,6 +221,21 @@ module DevonaBot
       if nicholas
         nick_text = "**#{nicholas[:item]}** x 5\n#{nicholas[:location]} (#{nicholas[:region]}, #{nicholas[:campaign]})"
         fields << { name: "Nicholas the Traveler", value: nick_text, inline: false }
+      end
+
+      if @special_events_feed
+        begin
+          upcoming = @special_events_feed.next_events(1)
+          if upcoming && !upcoming.empty?
+            ev = upcoming.first
+            unix = ev[:datetime].to_i
+            event_url = ev[:url] || "#{WIKI_BASE_URL}/wiki/#{ev[:name].gsub(' ', '_')}"
+            value = "[#{ev[:name]}](#{event_url}) (#{ev[:size]})\n<t:#{unix}:F> (<t:#{unix}:R>)"
+            fields << { name: "Next Special Event", value: value, inline: false }
+          end
+        rescue => e
+          puts "Error fetching next special event for daily embed: #{e.message}"
+        end
       end
 
       return nil if fields.empty?
