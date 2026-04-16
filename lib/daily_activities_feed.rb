@@ -7,6 +7,10 @@ module DevonaBot
   DAILY_ACTIVITIES_URL = "#{WIKI_BASE_URL}/wiki/Daily_activities"
 
   class DailyActivitiesFeed
+    # In-game daily reset is at 16:00 UTC; wait 2 minutes for the wiki to update.
+    RESET_HOUR_UTC = 16
+    RESET_MINUTE_UTC = 2
+
     def initialize(discord_bot, redis_client, wiki_client, special_events_feed = nil)
       @discord_bot = discord_bot
       @redis_client = redis_client
@@ -244,7 +248,7 @@ module DevonaBot
         title: "Daily Guild Wars Activities",
         color: 0x8B0000,
         fields: fields,
-        footer: Discordrb::Webhooks::EmbedFooter.new(text: "Guild Wars Wiki \u2022 Updates daily at 4:00 AM UTC"),
+        footer: Discordrb::Webhooks::EmbedFooter.new(text: "Guild Wars Wiki \u2022 Updates daily at 4:00 PM UTC"),
         timestamp: Time.now.utc
       )
     end
@@ -344,18 +348,20 @@ module DevonaBot
       false
     end
 
+    def before_reset?
+      now = Time.now.utc
+      now.hour < RESET_HOUR_UTC || (now.hour == RESET_HOUR_UTC && now.min < RESET_MINUTE_UTC)
+    end
+
     def process
       return if @processing
 
       today = Time.now.utc.strftime('%Y-%m-%d')
       last_update = @redis_client.call("GET", "daily_activities:last_update")
 
-      if last_update == today
-        return if Time.now.utc.hour < 4
-        return
-      end
+      return if last_update == today
 
-      return if Time.now.utc.hour < 4 && last_update == (Date.today - 1).strftime('%Y-%m-%d')
+      return if before_reset? && last_update == (Date.today - 1).strftime('%Y-%m-%d')
 
       @processing = true
 
