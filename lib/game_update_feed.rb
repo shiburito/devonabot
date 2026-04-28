@@ -94,9 +94,10 @@ module DevonaBot
     end
 
     def format_update_for_discord(date_id, sections)
-      update_section = sections.find { |s| s[:title]&.include?('Update') }
-      return nil unless update_section
+      update_section_idx = sections.index { |s| s[:title]&.include?('Update') }
+      return nil unless update_section_idx
 
+      update_section = sections[update_section_idx]
       title = update_section[:title]
       wiki_url = "#{WIKI_BASE_URL}/wiki/Feedback:Game_updates/#{date_id}"
 
@@ -112,21 +113,10 @@ module DevonaBot
 
       unless update_section[:intro].empty?
         intro_text = update_section[:intro].join("\n\n")
-        if intro_text.length <= 4096
-          current_embed[:description] = intro_text
-        end
+        current_embed[:description] = intro_text if intro_text.length <= 4096
       end
 
-      update_section[:subsections].each do |subsection|
-        content_parts = []
-
-        content_parts.concat(subsection[:items])
-
-        subsection[:features].each do |feature|
-          content_parts << "**#{feature[:title]}**"
-          content_parts.concat(feature[:items])
-        end
-
+      add_field = proc do |field_name, content_parts|
         next if content_parts.empty?
 
         chunks = []
@@ -147,7 +137,7 @@ module DevonaBot
         chunks << current_chunk.join("\n") unless current_chunk.empty?
 
         chunks.each_with_index do |chunk, idx|
-          field_name = idx == 0 ? subsection[:title] : "#{subsection[:title]} (cont.)"
+          name = idx == 0 ? field_name : "#{field_name} (cont.)"
 
           embed_size = current_embed.to_json.length
           if current_embed[:fields].length >= 25 || embed_size + chunk.length > 5500
@@ -162,22 +152,26 @@ module DevonaBot
             }
           end
 
-          current_embed[:fields] << {
-            name: field_name,
-            value: chunk,
-            inline: false
-          }
+          current_embed[:fields] << { name: name, value: chunk, inline: false }
         end
       end
 
-      if current_embed[:fields].empty? && !update_section[:items].empty?
-        content = update_section[:items].join("\n")
-        content = content[0, 1020] + "..." if content.length > 1024
-        current_embed[:fields] << {
-          name: "Changes",
-          value: content,
-          inline: false
-        }
+      skip_titles = ['Guild Wars Wiki Notes']
+
+      sections[update_section_idx..].each do |section|
+        next if skip_titles.include?(section[:title])
+
+        field_name = section == update_section ? 'Changes' : section[:title]
+        add_field.call(field_name, section[:items])
+
+        section[:subsections].each do |subsection|
+          content_parts = subsection[:items].dup
+          subsection[:features].each do |feature|
+            content_parts << "**#{feature[:title]}**"
+            content_parts.concat(feature[:items])
+          end
+          add_field.call(subsection[:title], content_parts)
+        end
       end
 
       embeds << current_embed unless current_embed[:fields].empty? && current_embed[:description].nil?
