@@ -2,7 +2,7 @@ replicaCount: 1
 
 image:
   repository: git.shiburito.com/public/devonabot
-  tag: 70a11f0b8556a3c0292380140d390858f73dcdfe
+  tag: latest
   pullPolicy: Always
 
 service:
